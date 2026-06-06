@@ -1,9 +1,29 @@
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-
-const socket = io("http://localhost:5000");
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import { useMap } from "react-leaflet";
+import L from "leaflet";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+const startIcon = L.divIcon({
+  html: `<div style="
+    width:14px;
+    height:14px;
+    background:#22c55e;
+    border:2px solid white;
+    border-radius:50%;
+    box-shadow:0 0 5px rgba(0,0,0,0.5);
+  "></div>`,
+  className: "",
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+const currentIcon = L.divIcon({
+  html: `<div style="font-size:30px;">📍</div>`,
+  className: "",
+  iconSize: [40, 40],
+});
+const socket = io("http://localhost:5000");
 
 function MapUpdater({ position }) {
   const map = useMap();
@@ -22,10 +42,14 @@ function MapUpdater({ position }) {
 function App() {
   const [role, setRole] = useState("");
   const [trackingId, setTrackingId] = useState("");
+  const [route, setRoute] = useState([]);
   const [joined, setJoined] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [status, setStatus] = useState("Not connected");
-
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [userConnected, setUserConnected] = useState(false);
+  // const [startLocation, setStartLocation] = useState(null);
+  const startPoint = route.length > 0 ? route[0] : null;
   const joinTracking = () => {
     if (!role || !trackingId) {
       alert("Please select role and enter tracking ID");
@@ -72,13 +96,26 @@ function App() {
 
     if (role === "vendor") {
       socket.on("receive-location", (data) => {
-        setUserLocation([data.latitude, data.longitude]);
+        const newPosition = [data.latitude, data.longitude];
+
+        // setStartLocation((prev) => prev || newPosition);
+
+        setUserLocation(newPosition);
+        setRoute((prev) => [...prev, newPosition]);
+
+        setLastUpdated(new Date().toLocaleTimeString());
+        setUserConnected(true);
         setStatus("Receiving live user location");
+
       });
       socket.on("user-status", (data) => {
         if (data.role === "user" && data.status === "disconnected") {
           setStatus("User disconnected");
+          setUserConnected(false);
           setUserLocation(null);
+          setRoute([]);
+          setLastUpdated(null);
+          setStartLocation(null);
         }
       });
     }
@@ -92,9 +129,15 @@ function App() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Live Tracking App</h1>
-        <p style={styles.subtitle}>Real-time User to Vendor location tracking</p>
+        <div style={{ marginBottom: "30px" }}>
+          <h1 style={styles.title}>
+            Live Tracking Dashboard
+          </h1>
 
+          <p style={styles.subtitle}>
+            Real-time User to Vendor Location Tracking
+          </p>
+        </div>
         {!joined ? (
           <div style={styles.form}>
             <label style={styles.label}>Select Role</label>
@@ -139,11 +182,60 @@ function App() {
                 <strong>{status}</strong>
               </div>
             </div>
+            {role === "vendor" && (
+              <div
+                style={{
+                  padding: "12px",
+                  borderRadius: "10px",
+                  marginBottom: "15px",
+                  fontWeight: "bold",
+                  background: userConnected ? "#065f46" : "#7f1d1d",
+                  color: "white",
+                  textAlign: "center",
+                }}
+              >
+                {userConnected
+                  ? "🟢 User Connected"
+                  : "🔴 User Not Connected"}
+              </div>
+            )}
+            {role === "vendor" && (
+              <div style={styles.summaryBox}>
+                <h3 style={styles.summaryTitle}>Tracking Summary</h3>
+
+                <div style={styles.summaryGrid}>
+                  <div style={styles.summaryItem}>
+                    <span style={styles.infoLabel}>Updates Received</span>
+                    <h2>{route.length}</h2>
+                  </div>
+
+                  <div style={styles.summaryItem}>
+                    <span style={styles.infoLabel}>Route Points</span>
+                    <h2>{route.length}</h2>
+                  </div>
+
+                  <div style={styles.summaryItem}>
+                    <span style={styles.infoLabel}>Last Updated</span>
+                    <h2>{lastUpdated || "--"}</h2>
+                  </div>
+
+                  <div style={styles.summaryItem}>
+                    <span style={styles.infoLabel}>Connection</span>
+                    <h2>{userConnected ? "🟢" : "🔴"}</h2>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {userLocation && (
               <div style={styles.locationBox}>
                 <p>Latitude: {userLocation[0]}</p>
                 <p>Longitude: {userLocation[1]}</p>
+              </div>
+            )}
+            {lastUpdated && (
+              <div style={styles.locationBox}>
+                <p>Last Updated: {lastUpdated}</p>
               </div>
             )}
 
@@ -160,7 +252,11 @@ function App() {
                     ? "User live location is being tracked."
                     : "Waiting for user location..."}
                 </div>
-
+                <div style={styles.legendBox}>
+                  <span>🟢 Start Point</span>
+                  <span>📍 Current Location</span>
+                  <span>🔵 Route Path</span>
+                </div>
                 <div style={styles.mapWrapper}>
                   <MapContainer
                     center={userLocation || [28.6139, 77.209]}
@@ -170,10 +266,28 @@ function App() {
                     <MapUpdater position={userLocation} />
 
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    {route.length > 1 && (
+                      <Polyline positions={route} />
+                    )}
+                    {startPoint && (
+                      <Marker position={startPoint} icon={startIcon}>
+                        <Popup>Start Location</Popup>
+                      </Marker>
+                    )}
 
                     {userLocation && (
-                      <Marker position={userLocation}>
-                        <Popup>User Live Location</Popup>
+                      <Marker position={userLocation} icon={currentIcon}>
+                        <Popup>
+                          <div>
+                            <strong>Current User Location</strong>
+                            <br />
+                            Latitude: {userLocation[0].toFixed(5)}
+                            <br />
+                            Longitude: {userLocation[1].toFixed(5)}
+                            <br />
+                            Updated: {lastUpdated}
+                          </div>
+                        </Popup>
                       </Marker>
                     )}
                   </MapContainer>
@@ -203,15 +317,54 @@ const styles = {
     padding: "25px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
   },
+
   title: {
     textAlign: "center",
-    marginBottom: "8px",
+    fontSize: "3rem",
+    fontWeight: "700",
+    margin: 0,
+    lineHeight: "1.2",
   },
+
   subtitle: {
     textAlign: "center",
     color: "#9ca3af",
+    fontSize: "1rem",
+    marginTop: "12px",
     marginBottom: "30px",
+    lineHeight: "1.5",
   },
+  summaryItem: {
+    background: "#111827",
+    padding: "15px",
+    borderRadius: "12px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "90px",
+    border: "1px solid #374151",
+  },
+  summaryBox: {
+    background: "#0f172a",
+    padding: "18px",
+    borderRadius: "14px",
+    marginBottom: "20px",
+    border: "1px solid #334155",
+  },
+
+  summaryTitle: {
+    marginTop: 0,
+    marginBottom: "15px",
+    textAlign: "center",
+  },
+
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "20px",
+  },
+
   form: {
     maxWidth: "400px",
     margin: "0 auto",
@@ -273,6 +426,17 @@ const styles = {
     overflow: "hidden",
     borderRadius: "14px",
     border: "2px solid #374151",
+  },
+  legendBox: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "20px",
+    background: "#0f172a",
+    padding: "12px",
+    borderRadius: "10px",
+    marginBottom: "15px",
+    fontWeight: "bold",
+    flexWrap: "wrap",
   },
 };
 
