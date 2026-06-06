@@ -115,7 +115,6 @@ function App() {
           setUserLocation(null);
           setRoute([]);
           setLastUpdated(null);
-          setStartLocation(null);
         }
       });
     }
@@ -130,17 +129,16 @@ function App() {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={{ marginBottom: "30px" }}>
-          <h1 style={styles.title}>
-            Live Tracking Dashboard
-          </h1>
-
+          <h1 style={styles.title}>Live Tracking Dashboard</h1>
           <p style={styles.subtitle}>
             Real-time User to Vendor Location Tracking
           </p>
         </div>
+
         {!joined ? (
           <div style={styles.form}>
             <label style={styles.label}>Select Role</label>
+
             <select
               style={styles.input}
               value={role}
@@ -152,6 +150,7 @@ function App() {
             </select>
 
             <label style={styles.label}>Tracking ID</label>
+
             <input
               style={styles.input}
               type="text"
@@ -182,6 +181,7 @@ function App() {
                 <strong>{status}</strong>
               </div>
             </div>
+
             {role === "vendor" && (
               <div
                 style={{
@@ -199,45 +199,6 @@ function App() {
                   : "🔴 User Not Connected"}
               </div>
             )}
-            {role === "vendor" && (
-              <div style={styles.summaryBox}>
-                <h3 style={styles.summaryTitle}>Tracking Summary</h3>
-
-                <div style={styles.summaryGrid}>
-                  <div style={styles.summaryItem}>
-                    <span style={styles.infoLabel}>Updates Received</span>
-                    <h2>{route.length}</h2>
-                  </div>
-
-                  <div style={styles.summaryItem}>
-                    <span style={styles.infoLabel}>Route Points</span>
-                    <h2>{route.length}</h2>
-                  </div>
-
-                  <div style={styles.summaryItem}>
-                    <span style={styles.infoLabel}>Last Updated</span>
-                    <h2>{lastUpdated || "--"}</h2>
-                  </div>
-
-                  <div style={styles.summaryItem}>
-                    <span style={styles.infoLabel}>Connection</span>
-                    <h2>{userConnected ? "🟢" : "🔴"}</h2>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {userLocation && (
-              <div style={styles.locationBox}>
-                <p>Latitude: {userLocation[0]}</p>
-                <p>Longitude: {userLocation[1]}</p>
-              </div>
-            )}
-            {lastUpdated && (
-              <div style={styles.locationBox}>
-                <p>Last Updated: {lastUpdated}</p>
-              </div>
-            )}
 
             {role === "user" && (
               <div style={styles.messageBox}>
@@ -246,53 +207,88 @@ function App() {
             )}
 
             {role === "vendor" && (
-              <>
-                <div style={styles.messageBox}>
-                  {userLocation
-                    ? "User live location is being tracked."
-                    : "Waiting for user location..."}
-                </div>
-                <div style={styles.legendBox}>
-                  <span>🟢 Start Point</span>
-                  <span>📍 Current Location</span>
-                  <span>🔵 Route Path</span>
-                </div>
-                <div style={styles.mapWrapper}>
-                  <MapContainer
-                    center={userLocation || [28.6139, 77.209]}
-                    zoom={13}
-                    style={{ height: "500px", width: "100%" }}
-                  >
-                    <MapUpdater position={userLocation} />
+              <div style={styles.dashboardLayout}>
+                <div style={styles.leftPanel}>
+                  <h3 style={styles.panelTitle}>📦 Tracking Information</h3>
 
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    {route.length > 1 && (
-                      <Polyline positions={route} />
-                    )}
-                    {startPoint && (
-                      <Marker position={startPoint} icon={startIcon}>
-                        <Popup>Start Location</Popup>
-                      </Marker>
-                    )}
+                  <div style={styles.infoRow}>
+                    <span>Connection</span>
+                    <strong>{userConnected ? "🟢 Online" : "🔴 Offline"}</strong>
+                  </div>
 
-                    {userLocation && (
-                      <Marker position={userLocation} icon={currentIcon}>
-                        <Popup>
-                          <div>
-                            <strong>Current User Location</strong>
-                            <br />
-                            Latitude: {userLocation[0].toFixed(5)}
-                            <br />
-                            Longitude: {userLocation[1].toFixed(5)}
-                            <br />
-                            Updated: {lastUpdated}
-                          </div>
-                        </Popup>
-                      </Marker>
-                    )}
-                  </MapContainer>
+                  <div style={styles.infoRow}>
+                    <span>Updates</span>
+                    <strong>{route.length}</strong>
+                  </div>
+
+                  <div style={styles.infoRow}>
+                    <span>Last Updated</span>
+                    <strong>{lastUpdated || "--"}</strong>
+                  </div>
+
+                  <div style={styles.infoRow}>
+                    <span>Latitude</span>
+                    <strong>{userLocation ? userLocation[0].toFixed(5) : "--"}</strong>
+                  </div>
+
+                  <div style={styles.infoRow}>
+                    <span>Longitude</span>
+                    <strong>{userLocation ? userLocation[1].toFixed(5) : "--"}</strong>
+                  </div>
                 </div>
-              </>
+
+                <div style={styles.rightPanel}>
+                  <div style={styles.messageBox}>
+                    {userLocation
+                      ? "User live location is being tracked."
+                      : "Waiting for user location..."}
+                  </div>
+
+                  <div style={styles.legendBox}>
+                    <span>🟢 Start Point</span>
+                    <span>📍 Current Location</span>
+                    <span>🔵 Route Path</span>
+                  </div>
+
+                  <div style={styles.mapWrapper}>
+                    <MapContainer
+                      center={userLocation || [28.6139, 77.209]}
+                      zoom={13}
+                      style={{ height: "450px", width: "100%" }}
+                    >
+                      <MapUpdater position={userLocation} />
+
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+                      {route.length > 1 && <Polyline positions={route} />}
+
+                      {startPoint && (
+                        <Marker position={startPoint} icon={startIcon}>
+                          <Popup>
+                            <strong>🟢 Journey Started Here</strong>
+                          </Popup>
+                        </Marker>
+                      )}
+
+                      {userLocation && (
+                        <Marker position={userLocation} icon={currentIcon}>
+                          <Popup>
+                            <div>
+                              <strong>📍 Live User Location</strong>
+                              <br />
+                              Latitude: {userLocation[0].toFixed(5)}
+                              <br />
+                              Longitude: {userLocation[1].toFixed(5)}
+                              <br />
+                              Updated: {lastUpdated}
+                            </div>
+                          </Popup>
+                        </Marker>
+                      )}
+                    </MapContainer>
+                  </div>
+                </div>
+              </div>
             )}
           </>
         )}
@@ -314,25 +310,64 @@ const styles = {
     margin: "0 auto",
     background: "#1f2937",
     borderRadius: "16px",
-    padding: "25px",
+    padding: "14px 25px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+  },
+  dashboardLayout: {
+    display: "grid",
+    gridTemplateColumns: "260px 1fr",
+    gap: "12px",
+    alignItems: "start",
+  },
+
+
+  leftPanel: {
+    background: "#0f172a",
+    padding: "16px",
+    borderRadius: "12px",
+    border: "1px solid #334155",
+    height: "fit-content",
+  },
+  infoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "12px 0",
+    borderBottom: "1px solid #1e293b",
+    fontSize: "14px",
+  },
+
+  panelTitle: {
+    marginBottom: "10px",
+    fontSize: "16px",
+  },
+
+  panelItem: {
+    background: "#111827",
+    padding: "6px 8px",
+    borderRadius: "8px",
+    marginBottom: "6px",
+  },
+
+  rightPanel: {
+    width: "100%",
   },
 
   title: {
     textAlign: "center",
-    fontSize: "3rem",
+    fontSize: "2.3rem",
     fontWeight: "700",
     margin: 0,
-    lineHeight: "1.2",
+    lineHeight: "1",
   },
 
   subtitle: {
     textAlign: "center",
     color: "#9ca3af",
-    fontSize: "1rem",
-    marginTop: "12px",
-    marginBottom: "30px",
-    lineHeight: "1.5",
+    fontSize: "0.95rem",
+    marginTop: "6px",
+    marginBottom: "16px",
+    lineHeight: "1.2",
   },
   summaryItem: {
     background: "#111827",
@@ -394,16 +429,16 @@ const styles = {
   infoGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "15px",
-    marginBottom: "20px",
+    gap: "12px",
+    marginBottom: "12px",
   },
   infoBox: {
     background: "#111827",
-    padding: "15px",
-    borderRadius: "12px",
+    padding: "10px",
+    borderRadius: "10px",
     display: "flex",
     flexDirection: "column",
-    gap: "6px",
+    gap: "4px",
   },
   infoLabel: {
     color: "#9ca3af",
@@ -417,24 +452,24 @@ const styles = {
   },
   messageBox: {
     background: "#065f46",
-    padding: "12px",
+    padding: "9px",
     borderRadius: "10px",
-    marginBottom: "15px",
+    marginBottom: "10px",
     textAlign: "center",
   },
   mapWrapper: {
-    overflow: "hidden",
     borderRadius: "14px",
-    border: "2px solid #374151",
+    overflow: "hidden",
+    border: "1px solid #334155",
   },
   legendBox: {
     display: "flex",
     justifyContent: "center",
-    gap: "20px",
+    gap: "18px",
     background: "#0f172a",
-    padding: "12px",
+    padding: "9px",
     borderRadius: "10px",
-    marginBottom: "15px",
+    marginBottom: "10px",
     fontWeight: "bold",
     flexWrap: "wrap",
   },
