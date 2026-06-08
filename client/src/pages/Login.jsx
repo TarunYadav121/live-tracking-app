@@ -3,8 +3,8 @@ import { loginUser } from "../api/authApi";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
-const [error, setError] = useState("");
 const Login = () => {
+    const [error, setError] = useState("");
     const { login } = useAuth();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -25,7 +25,7 @@ const Login = () => {
             login(data.user, data.token);
             navigate("/tracking");
         } else {
-            setError(data.message || "Register failed");
+            setError(data.message || "Login failed");
         }
     };
 

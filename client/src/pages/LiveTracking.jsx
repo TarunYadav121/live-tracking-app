@@ -6,6 +6,8 @@ import L from "leaflet";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+
 const startIcon = L.divIcon({
     html: `<div style="
     width:14px;
@@ -14,7 +16,7 @@ const startIcon = L.divIcon({
     border:2px solid white;
     border-radius:50%;
     box-shadow:0 0 5px rgba(0,0,0,0.5);
-  "></div>`,
+    "></div>`,
     className: "",
     iconSize: [14, 14],
     iconAnchor: [7, 7],
@@ -41,7 +43,7 @@ function MapUpdater({ position }) {
     return null;
 }
 function App() {
-    const { user } = useAuth();
+    const { user, token, logout } = useAuth();
     const role = user?.role;
     const [trackingId, setTrackingId] = useState("");
     const [route, setRoute] = useState([]);
@@ -50,8 +52,11 @@ function App() {
     const [status, setStatus] = useState("Not connected");
     const [lastUpdated, setLastUpdated] = useState(null);
     const [userConnected, setUserConnected] = useState(false);
+    const [trackedUserId, setTrackedUserId] = useState(null);
+    const [startTime, setStartTime] = useState(null);
     // const [startLocation, setStartLocation] = useState(null);
     const startPoint = route.length > 0 ? route[0] : null;
+    const navigate = useNavigate();
     const joinTracking = () => {
         if (!role || !trackingId) {
             alert("Please select role and enter tracking ID");
@@ -61,9 +66,64 @@ function App() {
         socket.emit("join-room", {
             trackingId,
             role,
+            userId: user._id || user.id,
+            name: user.name,
         });
         setJoined(true);
         setStatus("Connected");
+        setStartTime(new Date().toISOString());
+    };
+    const handleLogout = () => {
+        logout();
+        navigate("/login");
+    };
+
+    const stopTracking = async () => {
+        console.log("SAVE CHECK:", {
+            trackingId,
+            routeLength: route.length,
+            trackedUserId,
+            role,
+            token,
+        });
+        if (role !== "vendor") {
+            alert("Only vendor can save tracking history");
+            return;
+        }
+
+        if (!trackingId || route.length === 0 || !trackedUserId) {
+            alert("No tracking data available to save");
+            return;
+        }
+
+        const sessionData = {
+            trackingId,
+            userId: trackedUserId,
+            route,
+            startTime,
+            endTime: new Date().toISOString(),
+        };
+
+        const res = await fetch("http://localhost:5000/api/tracking/save", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(sessionData),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            setStatus("Tracking saved successfully");
+            setJoined(false);
+            setRoute([]);
+            setUserLocation(null);
+            setTrackedUserId(null);
+        } else {
+            alert(data.message || "Failed to save tracking");
+        }
     };
 
     useEffect(() => {
@@ -74,6 +134,8 @@ function App() {
                 (position) => {
                     const locationData = {
                         trackingId,
+                        userId: user._id || user.id,
+                        name: user.name,
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
                     };
@@ -89,7 +151,7 @@ function App() {
                 {
                     enableHighAccuracy: true,
                     maximumAge: 0,
-                    timeout: 5000,
+                    timeout: 30000,
                 }
             );
 
@@ -100,7 +162,9 @@ function App() {
             socket.on("receive-location", (data) => {
                 const newPosition = [data.latitude, data.longitude];
 
-                // setStartLocation((prev) => prev || newPosition);
+                if (data.userId) {
+                    setTrackedUserId(data.userId);
+                }
 
                 setUserLocation(newPosition);
                 setRoute((prev) => [...prev, newPosition]);
@@ -108,9 +172,14 @@ function App() {
                 setLastUpdated(new Date().toLocaleTimeString());
                 setUserConnected(true);
                 setStatus("Receiving live user location");
-
             });
             socket.on("user-status", (data) => {
+                if (data.role === "user" && data.status === "joined") {
+                    setTrackedUserId(data.userId);
+                    setUserConnected(true);
+                    setStatus("User connected");
+                }
+
                 if (data.role === "user" && data.status === "disconnected") {
                     setStatus("User disconnected");
                     setUserConnected(false);
@@ -130,11 +199,14 @@ function App() {
     return (
         <div style={styles.page}>
             <div style={styles.card}>
-                <div style={{ marginBottom: "30px" }}>
+                <div style={styles.header}>
                     <h1 style={styles.title}>Live Tracking Dashboard</h1>
                     <p style={styles.subtitle}>
                         Real-time User to Vendor Location Tracking
                     </p>
+                    <button style={styles.logoutButton} onClick={handleLogout}>
+                        Logout
+                    </button>
                 </div>
 
                 {!joined ? (
@@ -156,6 +228,13 @@ function App() {
 
                         <button style={styles.button} onClick={joinTracking}>
                             Join Tracking
+                        </button>
+
+                        <button
+                            style={styles.historyButton}
+                            onClick={() => navigate("/history")}
+                        >
+                            View History
                         </button>
                     </div>
                 ) : (
@@ -281,6 +360,17 @@ function App() {
                                                 </Marker>
                                             )}
                                         </MapContainer>
+                                        <button style={styles.stopButton} onClick={stopTracking}>
+                                            Stop & Save Tracking
+                                        </button>
+                                        {role === "vendor" && (
+                                            <button
+                                                style={styles.historyButton}
+                                                onClick={() => navigate("/history")}
+                                            >
+                                                View History
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -468,6 +558,44 @@ const styles = {
         fontWeight: "bold",
         flexWrap: "wrap",
     },
+    stopButton: {
+        marginTop: "12px",
+        width: "100%",
+        padding: "12px",
+        borderRadius: "10px",
+        border: "none",
+        background: "#dc2626",
+        color: "white",
+        fontSize: "16px",
+        fontWeight: "bold",
+        cursor: "pointer",
+    },
+    historyButton: {
+        marginTop: "8px",
+        padding: "12px",
+        borderRadius: "8px",
+        border: "none",
+        background: "#059669",
+        color: "white",
+        fontSize: "16px",
+        cursor: "pointer",
+    },
+    header: {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "20px",
+},
+
+logoutButton: {
+  padding: "10px 16px",
+  border: "none",
+  borderRadius: "8px",
+  background: "#dc2626",
+  color: "white",
+  fontWeight: "bold",
+  cursor: "pointer",
+},
 };
 
 export default App;

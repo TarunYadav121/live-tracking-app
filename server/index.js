@@ -7,6 +7,7 @@ const connectDB = require("./config/db");
 
 connectDB();
 const authRoutes = require("./routes/authRoutes");
+const trackingRoutes = require("./routes/trackingRoutes");
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/tracking", trackingRoutes);
 
 
 
@@ -31,18 +33,18 @@ const users = {};
 io.on("connection", (socket) => {
   console.log("Connected:", socket.id);
 
-  socket.on("join-room", ({ trackingId, role }) => {
-    socket.join(trackingId);
+socket.on("join-room", ({ trackingId, role, userId, name }) => {
+  socket.join(trackingId);
 
-    users[socket.id] = { trackingId, role };
+  users[socket.id] = { trackingId, role, userId, name };
 
-    console.log(`${role} joined room ${trackingId}`);
-
-    socket.to(trackingId).emit("user-status", {
-      role,
-      status: "joined",
-    });
+  io.to(trackingId).emit("user-status", {
+    role,
+    userId,
+    name,
+    status: "joined",
   });
+});
 
   socket.on("send-location", (data) => {
     console.log("Location received:", data);

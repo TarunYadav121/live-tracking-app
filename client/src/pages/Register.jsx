@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { registerUser } from "../api/authApi";
-import { Link } from "react-router-dom";
-const [error, setError] = useState("");
+import { Link, useNavigate } from "react-router-dom";
 
 const Register = () => {
+    const navigate = useNavigate();
+    const [error, setError] = useState("");
     const [formData, setFormData] = useState({
         name: "",
         email: "",
