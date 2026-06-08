@@ -2,9 +2,20 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
+require("dotenv").config();
+const connectDB = require("./config/db");
+
+connectDB();
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
+
 app.use(cors());
+app.use(express.json());
+
+app.use("/api/auth", authRoutes);
+
+
 
 const server = http.createServer(app);
 
