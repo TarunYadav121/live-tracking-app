@@ -28,8 +28,7 @@ const currentIcon = L.divIcon({
     iconAnchor: [16, 32],
 });
 
-const socket = io("http://localhost:5000");
-
+const socket = io("https://live-tracking-app-backend-umk2.onrender.com");
 /* ── Map auto-pan helper ──────────────────────────────────────── */
 function MapUpdater({ position }) {
     const map = useMap();
@@ -96,7 +95,7 @@ function LiveTracking() {
             startTime,
             endTime: new Date().toISOString(),
         };
-        const res = await fetch("http://localhost:5000/api/tracking/save", {
+        const res = await fetch("http://live-tracking-app-backend-umk2.onrender.com/api/tracking/save", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
