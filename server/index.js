@@ -25,7 +25,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "https://live-tracking-app-rho.vercel.app/login",
+    origin: "https://live-tracking-app-rho.vercel.app",
     methods: ["GET", "POST"],
   },
 });
