@@ -81,4 +81,23 @@ router.get("/history/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+router.delete("/history/:id", authMiddleware, async (req, res) => {
+  try {
+    const session = await TrackingSession.findById(req.params.id);
+
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    if (session.vendorId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    await TrackingSession.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Tracking session deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 module.exports = router;

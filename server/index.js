@@ -29,48 +29,61 @@ const io = new Server(server, {
 });
 
 const users = {};
+const activeTrackingUsers = {};
 
 io.on("connection", (socket) => {
   console.log("Connected:", socket.id);
 
-socket.on("join-room", ({ trackingId, role, userId, name }) => {
-  socket.join(trackingId);
+  socket.on("join-room", ({ trackingId, role, userId, name }) => {
+    if (role === "user") {
+      if (activeTrackingUsers[trackingId]) {
+        socket.emit("join-error", {
+          message: "This tracking ID is already being used by another user",
+        });
+        return;
+      }
 
-  users[socket.id] = { trackingId, role, userId, name };
+      activeTrackingUsers[trackingId] = userId;
+    }
 
-  io.to(trackingId).emit("user-status", {
-    role,
-    userId,
-    name,
-    status: "joined",
+    socket.join(trackingId);
+
+    users[socket.id] = { trackingId, role, userId, name };
+
+    io.to(trackingId).emit("user-status", {
+      role,
+      userId,
+      name,
+      status: "joined",
+    });
   });
-});
+  socket.on("disconnect", () => {
+    const user = users[socket.id];
+
+    if (user) {
+      if (user.role === "user") {
+        delete activeTrackingUsers[user.trackingId];
+      }
+
+      socket.to(user.trackingId).emit("user-status", {
+        role: user.role,
+        userId: user.userId,
+        name: user.name,
+        status: "disconnected",
+      });
+
+      delete users[socket.id];
+    }
+  });
 
   socket.on("send-location", (data) => {
     console.log("Location received:", data);
     socket.to(data.trackingId).emit("receive-location", data);
   });
-
-  socket.on("disconnect", () => {
-    const userData = users[socket.id];
-
-    if (userData) {
-      const { trackingId, role } = userData;
-
-      console.log(`${role} disconnected from room ${trackingId}`);
-
-      socket.to(trackingId).emit("user-status", {
-        role,
-        status: "disconnected",
-      });
-
-      delete users[socket.id];
-    } else {
-      console.log("Disconnected:", socket.id);
-    }
-  });
 });
 
-server.listen(5000, () => {
-  console.log("Server running on port 5000");
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

@@ -7,10 +7,6 @@ import { useAuth } from "./context/AuthContext";
 import TrackingHistory from "./pages/TrackingHistory";
 import TrackingRouteView from "./pages/TrackingRouteView";
 import ProtectedRoute from "./components/ProtectedRoute";
-const ProtectedRoute = ({ children }) => {
-  const { token } = useAuth();
-  return token ? children : <Navigate to="/login" />;
-};
 
 function App() {
   return (

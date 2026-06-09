@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { loginUser } from "../api/authApi";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import "../App.css";
+
 const Login = () => {
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({
-        email: "",
-        password: "",
-    });
+    const [formData, setFormData] = useState({ email: "", password: "" });
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -18,9 +17,10 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
+        setError("");
+        setLoading(true);
         const data = await loginUser(formData);
-
+        setLoading(false);
         if (data.token) {
             login(data.user, data.token);
             navigate("/tracking");
@@ -30,112 +30,63 @@ const Login = () => {
     };
 
     return (
+        <div className="auth-page">
+            <div className="auth-card">
+                {/* Logo */}
+                <div className="auth-logo">
+                    <div className="auth-logo-icon">📍</div>
+                    <span className="auth-logo-text">LiveTrack</span>
+                </div>
 
-        <div style={styles.page}>
-            <div style={styles.card}>
-                <h2 style={styles.title}>Login</h2>
-                <p style={styles.subtitle}>Access your live tracking dashboard</p>
+                <h2 className="auth-heading">Welcome back</h2>
+                <p className="auth-sub">Sign in to your tracking dashboard</p>
 
-                <form onSubmit={handleSubmit} style={styles.form}>
-                    <input
-                        style={styles.input}
-                        type="email"
-                        name="email"
-                        placeholder="Enter email"
-                        value={formData.email}
-                        onChange={handleChange}
-                    />
+                <form onSubmit={handleSubmit} className="auth-form">
+                    <div className="form-group">
+                        <label className="form-label">Email address</label>
+                        <input
+                            className="form-input"
+                            type="email"
+                            name="email"
+                            placeholder="you@example.com"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                    <input
-                        style={styles.input}
-                        type="password"
-                        name="password"
-                        placeholder="Enter password"
-                        value={formData.password}
-                        onChange={handleChange}
-                    />
-                    {error && <p style={styles.error}>{error}</p>}
-                    <button style={styles.button} type="submit">
-                        Login
+                    <div className="form-group">
+                        <label className="form-label">Password</label>
+                        <input
+                            className="form-input"
+                            type="password"
+                            name="password"
+                            placeholder="••••••••"
+                            value={formData.password}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
+
+                    {error && <div className="auth-error">{error}</div>}
+
+                    <button
+                        className="btn btn-primary"
+                        type="submit"
+                        disabled={loading}
+                        style={{ marginTop: "6px", opacity: loading ? 0.7 : 1 }}
+                    >
+                        {loading ? "Signing in…" : "Sign In"}
                     </button>
-
-                    <p style={styles.text}>
-                        Don't have an account?{" "}
-                        <Link to="/register" style={styles.link}>
-                            Register
-                        </Link>
-                    </p>
                 </form>
+
+                <p className="auth-footer">
+                    Don&apos;t have an account?{" "}
+                    <Link to="/register">Create one</Link>
+                </p>
             </div>
         </div>
     );
-};
-const styles = {
-    page: {
-        minHeight: "100vh",
-        background: "#111827",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontFamily: "Arial, sans-serif",
-    },
-    card: {
-        width: "380px",
-        background: "#1f2937",
-        padding: "30px",
-        borderRadius: "16px",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-        color: "white",
-    },
-    title: {
-        textAlign: "center",
-        marginBottom: "8px",
-        fontSize: "2rem",
-    },
-    subtitle: {
-        textAlign: "center",
-        color: "#9ca3af",
-        marginBottom: "25px",
-    },
-    form: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "14px",
-    },
-    input: {
-        padding: "12px",
-        borderRadius: "8px",
-        border: "1px solid #374151",
-        background: "#111827",
-        color: "white",
-        fontSize: "15px",
-    },
-    button: {
-        padding: "12px",
-        borderRadius: "8px",
-        border: "none",
-        background: "#2563eb",
-        color: "white",
-        fontSize: "16px",
-        fontWeight: "bold",
-        cursor: "pointer",
-    },
-    text: {
-        textAlign: "center",
-        marginTop: "10px",
-        color: "#9ca3af",
-    },
-
-    link: {
-        color: "#60a5fa",
-        textDecoration: "none",
-        fontWeight: "bold",
-    },
-    error: {
-        color: "#f87171",
-        textAlign: "center",
-        margin: "0",
-    },
 };
 
 export default Login;

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { registerUser } from "../api/authApi";
 import { Link, useNavigate } from "react-router-dom";
+import "../App.css";
 
 const Register = () => {
     const navigate = useNavigate();
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -18,134 +20,101 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
+        setError("");
+        setLoading(true);
         const data = await registerUser(formData);
-
+        setLoading(false);
         if (data.user) {
             navigate("/login");
         } else {
-            setError(data.message || "Register failed");
+            setError(data.message || "Registration failed");
         }
     };
 
     return (
-        <div style={styles.page}>
-            <div style={styles.card}>
-                <h2 style={styles.title}>Register</h2>
-                <p style={styles.subtitle}>Create your live tracking account</p>
+        <div className="auth-page">
+            <div className="auth-card">
+                {/* Logo */}
+                <div className="auth-logo">
+                    <div className="auth-logo-icon">📍</div>
+                    <span className="auth-logo-text">LiveTrack</span>
+                </div>
 
-                <form onSubmit={handleSubmit} style={styles.form}>
-                    <input
-                        style={styles.input}
-                        type="text"
-                        name="name"
-                        placeholder="Enter name"
-                        value={formData.name}
-                        onChange={handleChange}
-                    />
+                <h2 className="auth-heading">Create account</h2>
+                <p className="auth-sub">Start tracking in seconds</p>
 
-                    <input
-                        style={styles.input}
-                        type="email"
-                        name="email"
-                        placeholder="Enter email"
-                        value={formData.email}
-                        onChange={handleChange}
-                    />
+                <form onSubmit={handleSubmit} className="auth-form">
+                    <div className="form-group">
+                        <label className="form-label">Full name</label>
+                        <input
+                            className="form-input"
+                            type="text"
+                            name="name"
+                            placeholder="John Doe"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                    <input
-                        style={styles.input}
-                        type="password"
-                        name="password"
-                        placeholder="Enter password"
-                        value={formData.password}
-                        onChange={handleChange}
-                    />
+                    <div className="form-group">
+                        <label className="form-label">Email address</label>
+                        <input
+                            className="form-input"
+                            type="email"
+                            name="email"
+                            placeholder="you@example.com"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                    <select
-                        style={styles.input}
-                        name="role"
-                        value={formData.role}
-                        onChange={handleChange}
+                    <div className="form-group">
+                        <label className="form-label">Password</label>
+                        <input
+                            className="form-input"
+                            type="password"
+                            name="password"
+                            placeholder="••••••••"
+                            value={formData.password}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Account type</label>
+                        <select
+                            className="form-input"
+                            name="role"
+                            value={formData.role}
+                            onChange={handleChange}
+                        >
+                            <option value="user">User – share my location</option>
+                            <option value="vendor">Vendor – track a user</option>
+                        </select>
+                    </div>
+
+                    {error && <div className="auth-error">{error}</div>}
+
+                    <button
+                        className="btn btn-primary"
+                        type="submit"
+                        disabled={loading}
+                        style={{ marginTop: "6px", opacity: loading ? 0.7 : 1 }}
                     >
-                        <option value="user">User</option>
-                        <option value="vendor">Vendor</option>
-                    </select>
-                    {error && <p style={styles.error}>{error}</p>}
-                    <button style={styles.button} type="submit">
-                        Register
+                        {loading ? "Creating account…" : "Create Account"}
                     </button>
-                    <p style={styles.text}>
-                        Already have an account?{" "}
-                        <Link to="/login" style={styles.link}>
-                            Login
-                        </Link>
-                    </p>
                 </form>
+
+                <p className="auth-footer">
+                    Already have an account?{" "}
+                    <Link to="/login">Sign in</Link>
+                </p>
             </div>
         </div>
     );
-};
-
-const styles = {
-    page: {
-        minHeight: "100vh",
-        background: "#111827",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    card: {
-        width: "380px",
-        background: "#1f2937",
-        padding: "30px",
-        borderRadius: "16px",
-        color: "white",
-    },
-    title: {
-        textAlign: "center",
-    },
-    subtitle: {
-        textAlign: "center",
-        color: "#9ca3af",
-        marginBottom: "20px",
-    },
-    form: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "12px",
-    },
-    input: {
-        padding: "12px",
-        borderRadius: "8px",
-        border: "1px solid #374151",
-        background: "#111827",
-        color: "white",
-    },
-    button: {
-        padding: "12px",
-        borderRadius: "8px",
-        border: "none",
-        background: "#2563eb",
-        color: "white",
-        cursor: "pointer",
-    },
-    text: {
-        textAlign: "center",
-        marginTop: "10px",
-        color: "#9ca3af",
-    },
-
-    link: {
-        color: "#60a5fa",
-        textDecoration: "none",
-        fontWeight: "bold",
-    },
-    error: {
-  color: "#f87171",
-  textAlign: "center",
-  margin: "0",
-},
 };
 
 export default Register;
