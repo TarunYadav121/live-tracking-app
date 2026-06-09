@@ -95,7 +95,7 @@ function LiveTracking() {
             startTime,
             endTime: new Date().toISOString(),
         };
-        const res = await fetch("http://live-tracking-app-backend-umk2.onrender.com/api/tracking/save", {
+        const res = await fetch("https://live-tracking-app-backend-umk2.onrender.com/api/tracking/save", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
