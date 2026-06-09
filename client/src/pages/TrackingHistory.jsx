@@ -12,7 +12,7 @@ const TrackingHistory = () => {
     const [toast, setToast] = useState(null);              // { type: "success"|"error", msg }
 
     useEffect(() => {
-        fetch("http://live-tracking-app-backend-umk2.onrender.com/api/tracking/history", {
+        fetch("https://live-tracking-app-backend-umk2.onrender.com/api/tracking/history", {
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((res) => res.json())
@@ -40,7 +40,7 @@ const TrackingHistory = () => {
 
         try {
             const res = await fetch(
-                `http://live-tracking-app-backend-umk2.onrender.com/api/tracking/history/${session._id}`,
+                `https://live-tracking-app-backend-umk2.onrender.com/api/tracking/history/${session._id}`,
                 {
                     method: "DELETE",
                     headers: { Authorization: `Bearer ${token}` },

@@ -58,7 +58,7 @@ const TrackingRouteView = () => {
     const [session, setSession] = useState(null);
 
     useEffect(() => {
-        fetch(`http://live-tracking-app-backend-umk2.onrender.com/api/tracking/history/${id}`, {
+        fetch(`https://live-tracking-app-backend-umk2.onrender.com/api/tracking/history/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((res) => res.json())
