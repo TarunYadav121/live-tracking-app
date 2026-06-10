@@ -1,11 +1,34 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import { useAuth } from "../context/AuthContext";
 import "../App.css";
 
 /* ── Custom map icons ─────────────────────────────────────────── */
 import L from "leaflet";
+
+/* ── FitBounds: zooms the saved-route map to show the full path ──
+   Runs once after the map mounts (positions never change on this
+   page). maxZoom 19 ensures tight zoom for short/local routes.
+─────────────────────────────────────────────────────────────────── */
+function FitBounds({ positions }) {
+    const map = useMap();
+    useEffect(() => {
+        if (!positions || positions.length === 0) return;
+        if (positions.length === 1) {
+            map.setView(positions[0], 19);
+            return;
+        }
+        const bounds = L.latLngBounds(positions);
+        map.fitBounds(bounds, {
+            padding: [48, 48],
+            maxZoom: 19,
+            animate: false,   // instant on page load — no jarring fly-in
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);   // intentionally run only on mount
+    return null;
+}
 
 const startIcon = L.divIcon({
     html: `<div style="
@@ -193,11 +216,18 @@ const TrackingRouteView = () => {
                                     zoom={13}
                                     style={{ height: "520px", width: "100%" }}
                                 >
+                                    <FitBounds positions={positions} />
                                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
                                     <Polyline
                                         positions={positions}
-                                        pathOptions={{ color: "#3b82f6", weight: 3 }}
+                                        pathOptions={{
+                                            color: "#60a5fa",
+                                            weight: 5,
+                                            opacity: 1,
+                                            lineJoin: "round",
+                                            lineCap: "round",
+                                        }}
                                     />
 
                                     <Marker position={startPoint} icon={startIcon}>

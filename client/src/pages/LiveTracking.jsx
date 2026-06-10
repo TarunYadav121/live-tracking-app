@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import { useMap } from "react-leaflet";
@@ -29,14 +29,120 @@ const currentIcon = L.divIcon({
 });
 
 const socket = io("https://live-tracking-app-backend-umk2.onrender.com");
-/* ── Map auto-pan helper ──────────────────────────────────────── */
-function MapUpdater({ position }) {
-    const map = useMap();
+
+/* ── SmoothMarker ─────────────────────────────────────────────────
+   Interpolates the marker position between the previous coordinate
+   and the newly received one using requestAnimationFrame.
+   Duration is capped so it finishes well before the next update
+   (GPS typically sends every 1–5 s; we animate in 700 ms).
+─────────────────────────────────────────────────────────────────── */
+const ANIM_DURATION_MS = 700;
+
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+
+function easeOutCubic(t) {
+    // Decelerates toward the end — feels natural for a moving vehicle
+    return 1 - Math.pow(1 - t, 3);
+}
+
+function SmoothMarker({ target, icon, onPosChange, children }) {
+    const [animatedPos, setAnimatedPos] = useState(target);
+    const prevPosRef  = useRef(target);
+    const rafRef      = useRef(null);
+    const startTimeRef = useRef(null);
+
     useEffect(() => {
-        if (position) {
-            map.flyTo(position, 15, { animate: true, duration: 2 });
+        if (!target) return;
+
+        if (!prevPosRef.current) {
+            prevPosRef.current = target;
+            setAnimatedPos(target);
+            onPosChange?.(target);
+            return;
         }
-    }, [position, map]);
+
+        const from = prevPosRef.current;
+        const to   = target;
+
+        if (from[0] === to[0] && from[1] === to[1]) return;
+
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        startTimeRef.current = null;
+
+        const animate = (timestamp) => {
+            if (!startTimeRef.current) startTimeRef.current = timestamp;
+            const elapsed = timestamp - startTimeRef.current;
+            const rawT    = Math.min(elapsed / ANIM_DURATION_MS, 1);
+            const t       = easeOutCubic(rawT);
+
+            const next = [
+                lerp(from[0], to[0], t),
+                lerp(from[1], to[1], t),
+            ];
+
+            setAnimatedPos(next);
+            onPosChange?.(next);     // ← keep polyline tip in sync
+
+            if (rawT < 1) {
+                rafRef.current = requestAnimationFrame(animate);
+            } else {
+                prevPosRef.current = to;
+                rafRef.current = null;
+            }
+        };
+
+        rafRef.current = requestAnimationFrame(animate);
+
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, [target]);   // onPosChange intentionally omitted — it's a stable callback
+
+    if (!animatedPos) return null;
+
+    return (
+        <Marker position={animatedPos} icon={icon}>
+            {children}
+        </Marker>
+    );
+}
+/* ── FitRouteControl ──────────────────────────────────────────────
+   Purely imperative — never touches the map on its own.
+   Writes a fitRoute() function onto controlRef so the button
+   outside the MapContainer can call it on demand.
+─────────────────────────────────────────────────────────────────── */
+function FitRouteControl({ routeRef, userLocationRef, controlRef }) {
+    const map = useMap();
+
+    useEffect(() => {
+        // Write the function once; it closes over `map` which is stable.
+        // We read route/userLocation from refs at call-time so the
+        // function always has the latest values without needing to
+        // re-register the effect.
+        controlRef.current = () => {
+            const route       = routeRef.current;
+            const userLocation = userLocationRef.current;
+
+            const points = route.length > 0 ? route : (userLocation ? [userLocation] : null);
+            if (!points) return;
+
+            if (points.length === 1) {
+                map.flyTo(points[0], 17, { animate: true, duration: 1 });
+                return;
+            }
+
+            map.fitBounds(L.latLngBounds(points), {
+                padding: [48, 48],
+                maxZoom: 19,
+                animate: true,
+                duration: 1,
+            });
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [map]); // map is stable — register once, read data via refs at call-time
+
     return null;
 }
 
@@ -54,7 +160,20 @@ function LiveTracking() {
     const [trackedUserId, setTrackedUserId] = useState(null);
     const [startTime, setStartTime] = useState(null);
     const startPoint = route.length > 0 ? route[0] : null;
+    // markerPos tracks the *animated* tip of the polyline so the line
+    // always ends exactly where the visible 📍 pin is, not the raw GPS point.
+    const [markerPos, setMarkerPos] = useState(null);
     const navigate = useNavigate();
+    // Ref to the imperative fitRoute() function provided by FitRouteControl
+    const fitRouteRef = useRef(null);
+    // Refs that always hold the latest route/location so FitRouteControl
+    // can read current values without re-registering its effect
+    const routeRef        = useRef([]);
+    const userLocationRef = useRef(null);
+
+    // Keep refs in sync on every render
+    routeRef.current        = route;
+    userLocationRef.current = userLocation;
 
     /* ── Handlers ───────────────────────────────────────────────── */
     const joinTracking = () => {
@@ -109,6 +228,7 @@ function LiveTracking() {
             setJoined(false);
             setRoute([]);
             setUserLocation(null);
+            setMarkerPos(null);
             setTrackedUserId(null);
         } else {
             alert(data.message || "Failed to save tracking");
@@ -137,7 +257,7 @@ function LiveTracking() {
                     setStatus("Location permission denied");
                     alert("Location error: " + error.message);
                 },
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+                { enableHighAccuracy: true, maximumAge: 10000, timeout: 60000 }
             );
             return () => navigator.geolocation.clearWatch(watchId);
         }
@@ -457,6 +577,14 @@ function LiveTracking() {
                                         </div>
 
                                         <div style={{ marginTop: "18px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <button
+                                                className="btn btn-ghost"
+                                                onClick={() => fitRouteRef.current?.()}
+                                                disabled={!userLocation}
+                                                title={userLocation ? "Fit map to show full route" : "Waiting for location…"}
+                                            >
+                                                🔍 Fit Route
+                                            </button>
                                             <button className="btn btn-danger" onClick={stopTracking}>
                                                 ⏹ Stop &amp; Save
                                             </button>
@@ -492,11 +620,27 @@ function LiveTracking() {
                                                 zoom={13}
                                                 style={{ height: "460px", width: "100%" }}
                                             >
-                                                <MapUpdater position={userLocation} />
+                                                <FitRouteControl
+                                                    routeRef={routeRef}
+                                                    userLocationRef={userLocationRef}
+                                                    controlRef={fitRouteRef}
+                                                />
                                                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-                                                {route.length > 1 && (
-                                                    <Polyline positions={route} pathOptions={{ color: "#3b82f6", weight: 3 }} />
+                                                {/* Polyline: historical route up to second-last point,
+                                                    then a live segment from last route point → animated
+                                                    marker position. Keeps the line tip glued to the pin. */}
+                                                {route.length >= 1 && markerPos && (
+                                                    <Polyline
+                                                        positions={[...route, markerPos]}
+                                                        pathOptions={{
+                                                            color: "#60a5fa",
+                                                            weight: 5,
+                                                            opacity: 1,
+                                                            lineJoin: "round",
+                                                            lineCap: "round",
+                                                        }}
+                                                    />
                                                 )}
 
                                                 {startPoint && (
@@ -506,14 +650,18 @@ function LiveTracking() {
                                                 )}
 
                                                 {userLocation && (
-                                                    <Marker position={userLocation} icon={currentIcon}>
+                                                    <SmoothMarker
+                                                        target={userLocation}
+                                                        icon={currentIcon}
+                                                        onPosChange={setMarkerPos}
+                                                    >
                                                         <Popup>
                                                             <strong>📍 Live User Location</strong><br />
                                                             Lat: {userLocation[0].toFixed(5)}<br />
                                                             Lng: {userLocation[1].toFixed(5)}<br />
                                                             Updated: {lastUpdated}
                                                         </Popup>
-                                                    </Marker>
+                                                    </SmoothMarker>
                                                 )}
                                             </MapContainer>
                                         </div>
