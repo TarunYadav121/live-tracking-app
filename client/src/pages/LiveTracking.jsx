@@ -115,24 +115,31 @@ function SmoothMarker({ target, icon, onPosChange, children }) {
 ─────────────────────────────────────────────────────────────────── */
 function FitRouteControl({ routeRef, userLocationRef, controlRef }) {
     const map = useMap();
+    const didFlyRef = useRef(false);   // gate: fires exactly once
 
+    // Runs every render but the boolean gate means it only does
+    // the flyTo once — the first time userLocationRef has a value.
+    // After that didFlyRef stays true and the check returns immediately.
     useEffect(() => {
-        // Write the function once; it closes over `map` which is stable.
-        // We read route/userLocation from refs at call-time so the
-        // function always has the latest values without needing to
-        // re-register the effect.
-        controlRef.current = () => {
-            const route       = routeRef.current;
-            const userLocation = userLocationRef.current;
+        if (didFlyRef.current) return;
+        const pos = userLocationRef.current;
+        if (!pos) return;
+        didFlyRef.current = true;
+        map.flyTo(pos, 17, { animate: true, duration: 1.2 });
+    });
 
+    // Writes the imperative fitRoute() once (map ref is stable).
+    // Reads live data from refs at call-time so it's always current.
+    useEffect(() => {
+        controlRef.current = () => {
+            const route        = routeRef.current;
+            const userLocation = userLocationRef.current;
             const points = route.length > 0 ? route : (userLocation ? [userLocation] : null);
             if (!points) return;
-
             if (points.length === 1) {
                 map.flyTo(points[0], 17, { animate: true, duration: 1 });
                 return;
             }
-
             map.fitBounds(L.latLngBounds(points), {
                 padding: [48, 48],
                 maxZoom: 19,
@@ -141,7 +148,7 @@ function FitRouteControl({ routeRef, userLocationRef, controlRef }) {
             });
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [map]); // map is stable — register once, read data via refs at call-time
+    }, [map]);
 
     return null;
 }
